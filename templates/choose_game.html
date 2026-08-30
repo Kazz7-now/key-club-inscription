@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Choisir un jeu — Key Club{% endblock %}
+{% block content %}
+<main class="container">
+  <a href="{{ url_for('index') }}" class="back">← Retour à l'accueil</a>
+  <div class="form-header">
+    <p class="eyebrow dark">PROFIL ENREGISTRÉ</p>
+    <h1>Choisis ton jeu</h1>
+    <p>Ton profil est mémorisé. Choisis maintenant le jeu auquel tu veux participer.</p>
+  </div>
+
+  {% if registrations %}
+  <div class="alert info">
+    <strong>Tes inscriptions actuelles :</strong>
+    <ul class="registration-mini-list">
+      {% for r in registrations %}
+      <li>{{ r.game_name }} — {{ r.label }} ({{ r.start_time }} – {{ r.end_time }})</li>
+      {% endfor %}
+    </ul>
+    Tu peux choisir un autre jeu, mais pas un jeu qui a lieu le même jour.
+  </div>
+  {% endif %}
+
+  <div class="games-grid choose-games-grid">
+    {% for game in games %}
+    <a class="game-card" href="{{ url_for('inscription', game=game.slug) }}">
+      <div class="game-image-wrap">
+        <img class="game-image{% if game.slug == 'brawl-stars' %} brawl-logo{% endif %}" src="{{ game.image_url }}" alt="{{ game.name }}">
+      </div>
+      <div class="game-content">
+        <h3>{{ game.name }}</h3>
+        <p>{{ game.description }}</p>
+        {% if game.available_days > 0 %}
+          <span class="status available">🟢 Des places sont disponibles</span>
+        {% else %}
+          <span class="status full">🔴 Tous les jours sont complets</span>
+        {% endif %}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</main>
+{% endblock %}

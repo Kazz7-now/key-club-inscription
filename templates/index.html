@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Vient battre ton gameur — Key Club{% endblock %}
+{% block content %}
+<header class="hero">
+  <div class="hero-inner">
+    <p class="eyebrow">KEY CLUB</p>
+    <h1>Vient battre ton gameur 🎮</h1>
+    <p>Choisis ton jeu et participe à la compétition.</p>
+  </div>
+</header>
+
+<main class="container home">
+  {% if registrations %}
+  <div class="registered-banner">
+    <div><strong>{{ registrations|length }} inscription{{ 's' if registrations|length != 1 else '' }} active{{ 's' if registrations|length != 1 else '' }}</strong><br>Tu peux encore t'inscrire à d'autres jeux, mais pas le même jour.</div>
+    <a class="button secondary" href="{{ url_for('my_registrations') }}">Gérer mes inscriptions</a>
+  </div>
+  {% endif %}
+
+  <section class="games-section">
+    <h2>Choisis ton jeu</h2>
+    <p class="muted">Sélectionne une catégorie pour commencer ton inscription.</p>
+
+    <div class="games-grid">
+      {% for game in games %}
+      <a class="game-card" href="{{ url_for('inscription', game=game.slug) }}">
+        <div class="game-image-wrap">
+          <img class="game-image{% if game.slug == 'brawl-stars' %} brawl-logo{% endif %}" src="{{ game.image_url }}" alt="{{ game.name }}">
+        </div>
+        <div class="game-content">
+          <h3>{{ game.name }}</h3>
+          <p>{{ game.description }}</p>
+          {% if game.available_days > 0 %}
+            <span class="status available">🟢 Des places sont disponibles</span>
+          {% else %}
+            <span class="status full">🔴 Tous les jours sont complets</span>
+          {% endif %}
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+</main>
+
+<a href="{{ url_for('inscription') }}" class="floating-register">S'inscrire</a>
+{% endblock %}

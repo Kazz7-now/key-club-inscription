@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Inscription annulée — Key Club{% endblock %}
+{% block content %}
+<main class="container narrow">
+  <a href="{{ url_for('index') }}" class="back">← Retour à l'accueil</a>
+  <div class="success-card">
+    <div class="success-icon">✓</div>
+    <h1>Inscription annulée</h1>
+    <p>La place est de nouveau disponible.</p>
+    {% if registrations %}
+      <p>Il te reste {{ registrations|length }} inscription{{ 's' if registrations|length != 1 else '' }} active{{ 's' if registrations|length != 1 else '' }}.</p>
+      <div class="actions"><a class="button" href="{{ url_for('inscription') }}">Gérer mes inscriptions</a></div>
+    {% else %}
+      <a class="button" href="{{ url_for('inscription') }}">S'inscrire</a>
+    {% endif %}
+  </div>
+</main>
+{% endblock %}

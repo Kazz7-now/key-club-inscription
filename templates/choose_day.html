@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Choisir un jour — Key Club{% endblock %}
+{% block content %}
+<main class="container narrow">
+  <a href="{{ url_for('inscription', game=game.slug) }}" class="back">← Retour</a>
+  <div class="form-header">
+    <p class="eyebrow dark">ÉTAPE 2 / 2</p>
+    <h1>{{ game.name }}</h1>
+    <p>Choisis le jour où tu veux participer.</p>
+  </div>
+
+  {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+
+  {% if registrations %}
+  <div class="alert info">Tu es déjà inscrit à : {% for r in registrations %}<strong>{{ r.game_name }} — {{ r.label }}</strong>{% if not loop.last %}, {% endif %}{% endfor %}. Tu peux choisir ici un jour différent.</div>
+  {% endif %}
+
+  <div class="day-list">
+    {% for day in days %}
+    <form method="post" action="{{ url_for('confirm_inscription') }}" class="day-choice">
+      <input type="hidden" name="game_day_id" value="{{ day.id }}">
+      <div>
+        <span class="date">{{ day.event_date }}</span>
+        <h3>{{ day.label }}</h3>
+        <span class="time">🕒 {{ day.start_time }} – {{ day.end_time }}</span>
+        <br>
+        {% if day.remaining > 0 %}
+          <span class="status available">🟢 {{ day.remaining }} place{{ 's' if day.remaining != 1 else '' }} restante{{ 's' if day.remaining != 1 else '' }}</span>
+        {% else %}
+          <span class="status full">🔴 Complet</span>
+        {% endif %}
+      </div>
+      {% if day.remaining > 0 %}
+        <button class="button" type="submit">Choisir</button>
+      {% else %}
+        <span class="button disabled">Complet</span>
+      {% endif %}
+    </form>
+    {% endfor %}
+  </div>
+</main>
+{% endblock %}
