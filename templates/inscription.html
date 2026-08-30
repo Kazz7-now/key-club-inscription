@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Inscription — Key Club{% endblock %}
+{% block content %}
+<main class="container narrow">
+  <a href="{{ url_for('index') }}" class="back">← Retour à l'accueil</a>
+  <div class="form-header">
+    <p class="eyebrow dark">ÉTAPE 1 / 2</p>
+    <h1>Inscris-toi</h1>
+    <p>Indique tes informations. Tu pourras ensuite choisir ton jeu et ton jour. Tes informations seront mémorisées pour tes prochaines inscriptions.</p>
+  </div>
+
+  {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+
+  {% if registrations %}
+  <div class="alert info">
+    <strong>Tes inscriptions actuelles :</strong>
+    <ul class="registration-mini-list">
+      {% for r in registrations %}
+      <li>{{ r.game_name }} — {{ r.label }} ({{ r.start_time }} – {{ r.end_time }})</li>
+      {% endfor %}
+    </ul>
+    Tu peux t'inscrire à d'autres jeux, mais pas à deux jeux le même jour.
+  </div>
+  {% endif %}
+
+  <form method="post" class="form">
+    <label>Prénom
+      <input name="first_name" value="{{ form.first_name|title }}" required maxlength="80" autocomplete="given-name">
+    </label>
+    <label>Nom
+      <input name="last_name" value="{{ form.last_name|title }}" required maxlength="80" autocomplete="family-name">
+    </label>
+    <label>Classe
+      <select name="class_name" required>
+        <option value="">Choisis ta classe</option>
+        <option value="A définir" {% if form.class_name == 'a définir' %}selected{% endif %}>A définir pour le moment</option>
+      </select>
+    </label>
+
+    {% if selected_game %}
+      <input type="hidden" name="game" value="{{ selected_game }}">
+      <p class="selected-game">Jeu choisi : <strong>{{ selected_game|replace('-', ' ')|title }}</strong></p>
+    {% endif %}
+
+    <button class="button" type="submit">Continuer</button>
+  </form>
+</main>
+{% endblock %}

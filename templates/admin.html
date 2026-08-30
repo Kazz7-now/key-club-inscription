@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Administration — Key Club{% endblock %}
+{% block content %}
+<main class="container">
+  <h1>Administration</h1>
+  {% if login %}
+    {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+    <form method="post" class="form narrow-form">
+      <label>Identifiant
+        <input type="text" name="username" autocomplete="username" required>
+      </label>
+      <label>Mot de passe
+        <input type="password" name="password" autocomplete="current-password" required>
+      </label>
+      <button class="button">Connexion administrateur</button>
+    </form>
+  {% else %}
+    <div class="admin-status">
+      <div><strong>Mode administrateur</strong><br><span class="muted">Actualisation automatique toutes les 3 secondes.</span></div>
+      <div class="admin-actions">
+        <a class="button" href="{{ url_for('export_csv') }}">Exporter CSV</a>
+        <form method="post" action="{{ url_for('logout') }}"><button class="button secondary">Déconnexion</button></form>
+      </div>
+    </div>
+
+    <div id="admin-error" class="alert error" hidden></div>
+
+    <h2>Disponibilités par jeu et par jour</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Jeu</th><th>Jour</th><th>Date</th><th>Horaire</th><th>Places</th><th>Inscrits</th><th>Restantes</th></tr></thead>
+      <tbody id="days-body">
+      {% for d in days %}
+      <tr><td>{{ d.game_name }}</td><td>{{ d.label }}</td><td>{{ d.event_date }}</td><td>{{ d.start_time }} – {{ d.end_time }}</td><td>{{ d.capacity }}</td><td>{{ d.registered }}</td><td>{{ d.remaining }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+
+    <h2>Inscriptions <span id="registration-count">({{ registrations|length }})</span></h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Nom</th><th>Classe</th><th>Jeu</th><th>Jour</th><th>Horaire</th><th>Date d'inscription</th><th>Action</th></tr></thead>
+      <tbody id="registrations-body">
+      {% for r in registrations %}
+      <tr data-registration-id="{{ r.id }}"><td>{{ r.first_name|title }} {{ r.last_name|title }}</td><td>{{ r.class_name|upper }}</td><td>{{ r.game_name }}</td><td>{{ r.label }}</td><td>{{ r.start_time }} – {{ r.end_time }}</td><td>{{ r.created_at }}</td><td><button class="button danger delete-registration" data-id="{{ r.id }}" type="button">Supprimer</button></td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+
+    <p class="muted" id="last-update">Dernière mise à jour : maintenant</p>
+  {% endif %}
+</main>
+{% if not login %}
+<script>
+(() => {
+  const daysBody = document.getElementById('days-body');
+  const registrationsBody = document.getElementById('registrations-body');
+  const count = document.getElementById('registration-count');
+  const errorBox = document.getElementById('admin-error');
+  const lastUpdate = document.getElementById('last-update');
+
+  function cell(text) {
+    const td = document.createElement('td');
+    td.textContent = text ?? '';
+    return td;
+  }
+
+  function render(data) {
+    daysBody.replaceChildren();
+    data.days.forEach(d => {
+      const tr = document.createElement('tr');
+      [d.game_name, d.label, d.event_date, `${d.start_time || ''} – ${d.end_time || ''}`, d.capacity, d.registered, d.remaining]
+        .forEach(value => tr.appendChild(cell(value)));
+      daysBody.appendChild(tr);
+    });
+
+    registrationsBody.replaceChildren();
+    data.registrations.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.dataset.registrationId = r.id;
+      tr.appendChild(cell(`${r.first_name || ''} ${r.last_name || ''}`.trim()));
+      tr.appendChild(cell((r.class_name || '').toUpperCase()));
+      tr.appendChild(cell(r.game_name));
+      tr.appendChild(cell(r.label));
+      tr.appendChild(cell(`${r.start_time || ''} – ${r.end_time || ''}`));
+      tr.appendChild(cell(r.created_at));
+      const action = document.createElement('td');
+      const button = document.createElement('button');
+      button.className = 'button danger delete-registration';
+      button.type = 'button';
+      button.dataset.id = r.id;
+      button.textContent = 'Supprimer';
+      action.appendChild(button);
+      tr.appendChild(action);
+      registrationsBody.appendChild(tr);
+    });
+    count.textContent = `(${data.registrations.length})`;
+    lastUpdate.textContent = `Dernière mise à jour : ${new Date().toLocaleTimeString('fr-FR')}`;
+    errorBox.hidden = true;
+  }
+
+  async function refresh() {
+    try {
+      const response = await fetch('{{ url_for("admin_api_data") }}', { cache: 'no-store' });
+      if (response.status === 401) { window.location.href = '{{ url_for("admin") }}'; return; }
+      if (!response.ok) throw new Error('Erreur serveur');
+      render(await response.json());
+    } catch (error) {
+      errorBox.textContent = 'Impossible de mettre à jour les inscriptions pour le moment.';
+      errorBox.hidden = false;
+    }
+  }
+
+  registrationsBody.addEventListener('click', async (event) => {
+    const button = event.target.closest('.delete-registration');
+    if (!button) return;
+    const id = button.dataset.id;
+    if (!confirm('Supprimer définitivement cette inscription ?')) return;
+    button.disabled = true;
+    try {
+      const response = await fetch(`/admin/inscription/${id}/supprimer`, { method: 'POST' });
+      if (!response.ok) throw new Error('Suppression impossible');
+      await refresh();
+    } catch (error) {
+      button.disabled = false;
+      errorBox.textContent = 'La suppression a échoué. Réessaie.';
+      errorBox.hidden = false;
+    }
+  });
+
+  setInterval(refresh, 3000);
+})();
+</script>
+{% endif %}
+{% endblock %}
