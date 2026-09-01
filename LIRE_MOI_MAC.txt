@@ -1,0 +1,26 @@
+KEY CLUB — LANCER LE SITE SUR MAC
+
+1) Décompresse le fichier ZIP.
+2) Si macOS refuse Lancer Key Club sur Mac.command :
+   - clic droit sur le fichier
+   - choisir « Ouvrir »
+   - puis confirmer « Ouvrir » si macOS le propose.
+
+Si macOS continue de bloquer le fichier parce qu'il vient d'Internet :
+- ouvre Terminal dans ce dossier ;
+- exécute :
+
+  xattr -d com.apple.quarantine "Lancer Key Club sur Mac.command"
+
+- puis double-clique à nouveau sur le fichier.
+
+Une seule fois suffit généralement.
+
+3) Le script crée automatiquement l'environnement Python et installe Flask.
+4) Le navigateur s'ouvre sur http://127.0.0.1:5000.
+
+IMPORTANT
+- Le site et son code restent dans le même dossier.
+- Pour voir le code : ouvre ce dossier dans VS Code, Cursor ou un autre éditeur.
+- Pour partager le dossier avec un ami, le plus simple est AirDrop, clé USB ou partage de fichiers local : les fichiers .command téléchargés depuis Internet peuvent être marqués comme provenant d'un développeur non identifié par macOS.
+- Une fois le site déployé sur un serveur, ton ami n'aura plus rien à installer : il ouvrira simplement l'adresse du site dans Safari/Chrome.
