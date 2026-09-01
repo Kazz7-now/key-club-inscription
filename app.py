@@ -14,6 +14,8 @@ DB = os.path.join(os.path.dirname(__file__), "key_club.db")
 USE_POSTGRES = bool(DATABASE_URL)
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "change-moi")
+PARTICIPATION_FEE = "5 €"
+DEFAULT_CAPACITY = 20
 
 # Horaires provisoires : ils pourront être remplacés par les vrais horaires.
 SCHEDULE = {
@@ -32,14 +34,18 @@ SCHEDULE = {
     "dominos": {
         "Lundi": ("11:00", "12:00"), "Mardi": ("12:00", "13:00"),
         "Mercredi": ("15:00", "16:00"), "Jeudi": ("17:00", "18:00")},
+    "call-of-duty-mobile": {
+        "Lundi": ("11:00", "12:00"), "Mardi": ("12:00", "13:00"),
+        "Mercredi": ("16:00", "17:00"), "Jeudi": ("17:00", "18:00")},
 }
 
 GAME_IMAGES = {
-    "brawl-stars": "https://toppng.com/public/uploads/preview/brawl-stars-logo-brawl-stars-logo-115628505292nb3akfvfw.png",
+    "brawl-stars": "/static/images/brawl-stars.png",
     "fifa": "https://upload.wikimedia.org/wikipedia/commons/5/5c/FIFA_series_logo.png",
     "echecs": "https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_pictogram.png",
     "mario-kart": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Mario_Kart_logo.png/960px-Mario_Kart_logo.png",
     "dominos": "https://cdn-icons-png.flaticon.com/512/8936/8936624.png",
+    "call-of-duty-mobile": "https://commons.wikimedia.org/wiki/Special:FilePath/Call_of_Duty_Mobile_2023_Logo.png",
 }
 
 
@@ -105,17 +111,17 @@ def init_db():
             conn.execute("ALTER TABLE game_days ADD COLUMN end_time TEXT")
     conn.execute("DROP INDEX IF EXISTS one_active_registration_per_person")
 
-    if conn.execute("SELECT COUNT(*) AS count FROM games").fetchone()["count"] == 0:
-        conn.executemany(
-            "INSERT INTO games(name, slug, description) VALUES (?, ?, ?)",
-            [
-                ("Brawl Stars", "brawl-stars", "Affronte les autres joueurs sur Brawl Stars."),
-                ("FIFA", "fifa", "Un tournoi FIFA pour départager les meilleurs."),
-                ("Échecs", "echecs", "Affronte un autre joueur sur l'échiquier."),
-                ("Mario Kart", "mario-kart", "Course et compétition sur Mario Kart."),
-                ("Dominos", "dominos", "Un moment de compétition autour des dominos."),
-            ],
-        )
+    game_seed = [
+        ("Brawl Stars", "brawl-stars", "Affronte les autres joueurs sur Brawl Stars."),
+        ("FIFA", "fifa", "Un tournoi FIFA pour départager les meilleurs."),
+        ("Échecs", "echecs", "Affronte un autre joueur sur l'échiquier."),
+        ("Mario Kart", "mario-kart", "Course et compétition sur Mario Kart."),
+        ("Dominos", "dominos", "Un moment de compétition autour des dominos."),
+        ("Call of Duty: Mobile", "call-of-duty-mobile", "Affronte les autres joueurs sur Call of Duty: Mobile."),
+    ]
+    for name, slug, description in game_seed:
+        if not conn.execute("SELECT 1 FROM games WHERE slug=?", (slug,)).fetchone():
+            conn.execute("INSERT INTO games(name, slug, description) VALUES (?, ?, ?)", (name, slug, description))
 
     if conn.execute("SELECT COUNT(*) AS count FROM event_days").fetchone()["count"] == 0:
         conn.executemany(
@@ -128,27 +134,31 @@ def init_db():
             ],
         )
 
-    if conn.execute("SELECT COUNT(*) AS count FROM game_days").fetchone()["count"] == 0:
-        games = conn.execute("SELECT id, slug FROM games ORDER BY id").fetchall()
-        days = conn.execute("SELECT id, label FROM event_days ORDER BY id").fetchall()
-        conn.executemany(
-            "INSERT INTO game_days(game_id, day_id, capacity, start_time, end_time) VALUES (?, ?, ?, ?, ?)",
-            [
-                (g["id"], d["id"], 20, *SCHEDULE.get(g["slug"], {}).get(d["label"], ("10:00", "11:00")))
-                for g in games for d in days
-            ],
-        )
-    else:
-        # Met à jour les horaires des lignes existantes à partir du planning actuel.
-        rows = conn.execute("""
-            SELECT gd.id, g.slug, d.label
-            FROM game_days gd
-            JOIN games g ON g.id = gd.game_id
-            JOIN event_days d ON d.id = gd.day_id
-        """).fetchall()
-        for row in rows:
-            start, end = SCHEDULE.get(row["slug"], {}).get(row["label"], ("10:00", "11:00"))
-            conn.execute("UPDATE game_days SET start_time=?, end_time=? WHERE id=?", (start, end, row["id"]))
+    games = conn.execute("SELECT id, slug FROM games ORDER BY id").fetchall()
+    days = conn.execute("SELECT id, label FROM event_days ORDER BY id").fetchall()
+    for g in games:
+        for d in days:
+            exists = conn.execute("SELECT 1 FROM game_days WHERE game_id=? AND day_id=?", (g["id"], d["id"])).fetchone()
+            if not exists:
+                start, end = SCHEDULE.get(g["slug"], {}).get(d["label"], ("10:00", "11:00"))
+                conn.execute(
+                    "INSERT INTO game_days(game_id, day_id, capacity, start_time, end_time) VALUES (?, ?, ?, ?, ?)",
+                    (g["id"], d["id"], DEFAULT_CAPACITY, start, end),
+                )
+
+    # Les créneaux historiques restent intacts. On ne corrige que des capacités
+    # invalides/nulles et les horaires manquants, sans toucher aux inscriptions.
+    rows = conn.execute("""
+        SELECT gd.id, gd.capacity, gd.start_time, gd.end_time, g.slug, d.label
+        FROM game_days gd
+        JOIN games g ON g.id = gd.game_id
+        JOIN event_days d ON d.id = gd.day_id
+    """).fetchall()
+    for row in rows:
+        start, end = SCHEDULE.get(row["slug"], {}).get(row["label"], ("10:00", "11:00"))
+        capacity = row["capacity"] if row["capacity"] and row["capacity"] > 0 else DEFAULT_CAPACITY
+        if not row["start_time"] or not row["end_time"] or capacity != row["capacity"]:
+            conn.execute("UPDATE game_days SET capacity=?, start_time=?, end_time=? WHERE id=?", (capacity, row["start_time"] or start, row["end_time"] or end, row["id"]))
 
     conn.commit()
     conn.close()
@@ -175,6 +185,7 @@ def get_games():
     for row in rows:
         game = dict(row)
         game["image_url"] = GAME_IMAGES.get(game["slug"], "")
+        game["participation_fee"] = PARTICIPATION_FEE
         games.append(game)
     return games
 
@@ -200,6 +211,7 @@ def get_game(slug):
     conn.close()
     game = dict(game)
     game["image_url"] = GAME_IMAGES.get(game["slug"], "")
+    game["participation_fee"] = PARTICIPATION_FEE
     return game, [dict(r) for r in days]
 
 
@@ -222,6 +234,12 @@ def current_registrations():
     """, (person["first_name"], person["last_name"], person["class_name"])).fetchall()
     conn.close()
     return [dict(row) for row in rows]
+
+
+@app.context_processor
+def navigation_context():
+    """Expose whether the current person has active registrations for the navbar."""
+    return {"nav_has_registrations": bool(current_registrations())}
 
 
 def same_day_registration(first_name, last_name, class_name, day_id):
@@ -433,30 +451,40 @@ def cancel_registration():
 def admin_data():
     conn = get_db()
     days = conn.execute("""
-        SELECT gd.id, g.name AS game_name, d.label, d.event_date, gd.capacity,
-               gd.start_time, gd.end_time,
+        SELECT d.id AS day_id, d.label, d.event_date,
+               gd.id AS game_day_id, g.id AS game_id, g.name AS game_name, g.slug,
+               gd.capacity, gd.start_time, gd.end_time,
                COUNT(r.id) AS registered, gd.capacity - COUNT(r.id) AS remaining
-        FROM game_days gd
+        FROM event_days d
+        JOIN game_days gd ON gd.day_id = d.id
         JOIN games g ON g.id = gd.game_id
-        JOIN event_days d ON d.id = gd.day_id
         LEFT JOIN registrations r ON r.game_day_id = gd.id
-        GROUP BY gd.id, g.name, d.label, d.event_date, gd.capacity, gd.start_time, gd.end_time
+        GROUP BY d.id, d.label, d.event_date, gd.id, g.id, g.name, g.slug, gd.capacity, gd.start_time, gd.end_time
         ORDER BY d.event_date, g.id
     """).fetchall()
     registrations = conn.execute("""
         SELECT r.id, r.first_name, r.last_name, r.class_name, r.created_at,
-               g.name AS game_name, d.label, d.event_date, gd.start_time, gd.end_time
+               gd.id AS game_day_id, g.id AS game_id, g.name AS game_name, g.slug,
+               d.id AS day_id, d.label, d.event_date, gd.start_time, gd.end_time
         FROM registrations r
         JOIN game_days gd ON gd.id = r.game_day_id
         JOIN games g ON g.id = gd.game_id
         JOIN event_days d ON d.id = gd.day_id
-        ORDER BY r.created_at DESC, r.id DESC
+        ORDER BY d.event_date, g.id, r.last_name, r.first_name, r.id
     """).fetchall()
     conn.close()
-    return {
-        "days": [dict(row) for row in days],
-        "registrations": [dict(row) for row in registrations],
-    }
+    days_list = [dict(row) for row in days]
+    regs = [dict(row) for row in registrations]
+    for r in regs:
+        if r.get("created_at") is not None:
+            r["created_at"] = str(r["created_at"])
+    by_game_day = {}
+    for r in regs:
+        by_game_day.setdefault(str(r["game_day_id"]), []).append(r)
+    for d in days_list:
+        d["participation_fee"] = PARTICIPATION_FEE
+        d["registrations"] = by_game_day.get(str(d["game_day_id"]), [])
+    return {"days": days_list, "registrations": regs}
 
 
 @app.route("/admin", methods=["GET", "POST"])
@@ -517,7 +545,7 @@ def export_csv():
     writer = csv.writer(output)
     writer.writerow(["Jeu", "Jour", "Date", "Début", "Fin", "Prénom", "Nom", "Classe", "Inscrit le"])
     for row in rows:
-        writer.writerow(list(row))
+        writer.writerow([row["name"], row["label"], row["event_date"], row["start_time"], row["end_time"], row["first_name"], row["last_name"], row["class_name"], row["created_at"]])
     return Response(output.getvalue(), mimetype="text/csv",
                     headers={"Content-Disposition": "attachment; filename=inscriptions.csv"})
 

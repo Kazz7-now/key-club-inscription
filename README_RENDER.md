@@ -58,3 +58,11 @@ gunicorn app:app
 Sans `DATABASE_URL`, l'application continue d'utiliser SQLite localement. Tu peux donc continuer à développer sans PostgreSQL sur ton PC.
 
 Pour tester exactement PostgreSQL en local, définis `DATABASE_URL` vers une base PostgreSQL de développement.
+
+
+## V10
+- Administration organisée par jour puis par jeu, avec compteur inscrits/places.
+- Ajout de Call of Duty: Mobile.
+- Participation affichée à 5 €.
+- Mode jour/nuit mémorisé dans le navigateur.
+- Migration idempotente : ne supprime pas les inscriptions PostgreSQL existantes.
