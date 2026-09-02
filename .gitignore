@@ -1,8 +1,2 @@
-__pycache__/
-*.py[cod]
-.venv/
-venv/
-.env
-.env.*
-key_club.db
-.DS_Store
+# Created by venv; see https://docs.python.org/3/library/venv.html
+*

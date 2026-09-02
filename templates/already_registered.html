@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Mes inscriptions — Key Club{% endblock %}
+{% block content %}
+<main class="container narrow">
+  <a href="{{ url_for('index') }}" class="back home-back">← Retour à l'accueil</a>
+  <div class="alert info"><strong>{{ message or 'Voici tes inscriptions.' }}</strong></div>
+  <div class="success-card">
+    <h1>Mes inscriptions</h1>
+    {% for r in registrations %}
+    <div class="registration-card">
+      <div class="summary">
+        <strong>{{ r.game_name }}</strong><span>💶 Participation : 5 €</span>
+        <span>{{ r.label }} — {{ r.event_date }}</span>
+        <span>🕒 {{ r.start_time }} – {{ r.end_time }}</span>
+        <span>{{ r.first_name|title }} {{ r.last_name|title }} — {{ r.class_name|upper }}</span>
+      </div>
+      <form method="post" action="{{ url_for('cancel_registration') }}" onsubmit="return confirm('Annuler cette inscription ?');">
+        <input type="hidden" name="cancel_token" value="{{ r.cancel_token }}">
+        <button class="button danger" type="submit">Annuler cette inscription</button>
+      </form>
+    </div>
+    {% endfor %}
+    <div class="actions top-gap">
+      <a class="button" href="{{ url_for('inscription') }}">S'inscrire à un autre jeu</a>
+    </div>
+  </div>
+</main>
+{% endblock %}
